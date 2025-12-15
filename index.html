@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="시간자원게임" />
+  <meta name="theme-color" content="#0b0e14" />
+  <meta name="format-detection" content="telephone=no" />
+<title>시간자원 대체역사 보드게임 (7년/턴 · MDD/연수익률 기반)</title>
+  
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="시간자원게임">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#0b0e14">
+
+<style>
+    :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif}
+    body{margin:0;background:#0b0e14;color:#e8eefc}
+    header{padding:14px 16px;background:#111827;position:sticky;top:0;z-index:10;border-bottom:1px solid #1f2a44}
+    header h1{font-size:16px;margin:0;font-weight:900}
+    main{padding:14px 16px 80px;max-width:1100px;margin:0 auto}
+    .grid{display:grid;gap:12px}
+    @media (min-width:980px){.grid.cols2{grid-template-columns:1.2fr 0.8fr}}
+    .card{background:#0f172a;border:1px solid #1f2a44;border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .muted{color:#a7b0c2}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #24304f;background:#0b1224;font-size:12px}
+    .btn{background:#2563eb;border:0;color:#fff;padding:10px 12px;border-radius:12px;font-weight:900;cursor:pointer}
+    .btn.secondary{background:#1f2937}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+    input[type="number"],select{background:#0b1224;border:1px solid #24304f;color:#e8eefc;padding:10px 10px;border-radius:12px;width:130px}
+    label{font-size:12px;color:#b6c0d6}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:8px 8px;border-bottom:1px solid #1f2a44;vertical-align:top}
+    th{text-align:left;color:#b6c0d6;font-weight:900}
+    .log{max-height:340px;overflow:auto;white-space:pre-wrap;background:#070b12;border:1px solid #1f2a44;padding:10px;border-radius:12px}
+    .kpi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    @media (min-width:760px){.kpi{grid-template-columns:repeat(5,minmax(0,1fr))}}
+    .kpi .box{background:#0b1224;border:1px solid #24304f;border-radius:12px;padding:10px}
+    .kpi .box .v{font-size:18px;font-weight:1000;margin-top:4px}
+    .small{font-size:12px}
+    .hr{height:1px;background:#1f2a44;margin:10px 0}
+  
+    /* ===== iPhone / Mobile UX ===== */
+    html, body { height: 100%; -webkit-text-size-adjust: 100%; }
+    body { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+    header { padding-top: calc(14px + env(safe-area-inset-top)); }
+    main { padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
+
+    /* Prevent iOS auto-zoom on focus: keep inputs >= 16px */
+    input[type="number"], select { font-size: 16px; }
+
+    /* More finger-friendly tap targets */
+    .btn { min-height: 48px; padding: 12px 14px; font-size: 16px; border-radius: 14px; }
+    .pill { padding: 8px 12px; font-size: 13px; }
+    .card { border-radius: 16px; }
+
+    /* Mobile layout tweaks */
+    @media (max-width: 760px){
+      main{ padding: 12px 12px calc(150px + env(safe-area-inset-bottom)); }
+      header h1{ font-size: 15px; }
+      .kpi{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      input[type="number"], select { width: 100%; max-width: 100%; }
+      .row{ gap: 10px; }
+      table{ font-size: 12px; }
+      th,td{ padding: 10px 8px; }
+      .log{ max-height: 220px; }
+      /* Make the allocation action row stick to bottom via dock (below) */
+      #actionRowInline { display:none; }
+    }
+
+    /* Bottom dock (iPhone-style) */
+    .dock{
+      position: fixed; left: 0; right: 0; bottom: 0;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(17,24,39,0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(31,42,68,0.8);
+      z-index: 9999;
+    }
+    .dock .dockInner{
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      align-items: center;
+    }
+    .dock .dockInner .wide{ grid-column: 1 / -1; }
+    .dock .dockHint{
+      font-size: 12px; color: #a7b0c2; line-height: 1.25;
+    }
+    @media (min-width: 761px){
+      .dock{ display:none; }
+      #actionRowInline{ display:flex; }
+      body{ padding-bottom: 0; }
+      main{ padding-bottom: 80px; }
+    }
+
+</style>
+</head>
+<body>
+<header><h1>⏳ 시간자원 대체역사 보드게임 — 1턴=7년 · MDD/연수익률 기반</h1></header>
+
+<main class="grid cols2">
+  <section class="grid">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div class="row">
+          <span class="pill"><b>턴</b> <span id="turnLabel">-</span></span>
+          <span class="pill"><b>연도</b> <span id="yearLabel">-</span></span>
+          <span class="pill"><b>경제</b> <span id="regimeLabel">-</span></span>
+          <span class="pill"><b>주사위</b> <span id="diceLabel">-</span></span>
+          <span class="pill"><b>노동효율</b> <span id="laborEffLabel" class="muted">적용 후 공개</span></span>
+          <span class="pill"><b>자산효율</b> <span id="assetEffLabel" class="muted">적용 후 공개</span></span>
+          <span class="pill"><b>질병</b> <span id="diseaseLabel">없음</span></span>
+        </div>
+        <div class="row">
+          <button class="btn secondary" id="btnReset">새 게임</button>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="kpi">
+        <div class="box">
+          <div class="small muted">현금(시간)</div>
+          <div class="v" id="cashLabel">-</div>
+        </div>
+        <div class="box">
+          <div class="small muted">자산 원금 합</div>
+          <div class="v" id="assetTotalLabel">-</div>
+        </div>
+        <div class="box">
+          <div class="small muted">버프(경험 누적)</div>
+          <div class="v" id="buffLabel">-</div>
+        </div>
+        <div class="box">
+          <div class="small muted">이번 턴 필수소비</div>
+          <div class="v" id="consLabel">-</div>
+        </div>
+        <div class="box">
+          <div class="small muted">총 가치(참고)</div>
+          <div class="v" id="totalValueLabel">-</div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid" style="gap:10px;">
+        <div>
+          <div style="font-weight:900;">📜 공개 이벤트(대체역사 체감)</div>
+          <div class="small muted">역사+개인 이벤트는 모두 공개. 1턴=7년을 “한 시대”처럼 체감.</div>
+          <table>
+            <thead><tr><th style="width:120px;">구분</th><th>내용</th><th style="width:240px;">효과</th></tr></thead>
+            <tbody id="eventTable"></tbody>
+          </table>
+        </div>
+
+        <div class="card" style="background:#0b1224;border-color:#24304f;">
+          <div style="font-weight:900;">🧑‍🏭 노동 타입(시작 1회 선택)</div>
+          <div class="small muted">균등/초반집중/후반집중</div>
+          <div class="row" style="margin-top:8px;">
+            <select id="laborType">
+              <option value="flat">균등형</option>
+              <option value="front">초반 집중형</option>
+              <option value="back">후반 집중형</option>
+            </select>
+            <button class="btn" id="btnChooseLabor">확정</button>
+            <span id="laborChosenText" class="small muted"></span>
+          </div>
+        </div>
+
+        <div class="card" style="background:#0b1224;border-color:#24304f;">
+          <div style="font-weight:900;">🎛️ 이번 턴 배분 (현금↔자산 교환)</div>
+          <div class="small muted">주사위는 공개, 효율(노동/자산)은 “적용 후” 공개.</div>
+
+          <div class="hr"></div>
+
+          <div class="row" style="justify-content:space-between;">
+            <div class="row">
+              <div><label>노동 투입</label><br/><input id="allocLabor" type="number" min="0" step="1" value="12"/></div>
+              <div><label>경험 투입</label><br/><input id="allocExp" type="number" min="0" step="1" value="8"/></div>
+            </div>
+            <div class="small muted">남는 시간은 현금 유지</div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div style="font-weight:900;margin-bottom:6px;">📈 매수(현금→자산)</div>
+          <div class="row">
+            <div><label>주식</label><br/><input id="buyStock" type="number" min="0" step="1" value="8"/></div>
+            <div><label>금</label><br/><input id="buyGold" type="number" min="0" step="1" value="4"/></div>
+            <div><label>채권</label><br/><input id="buyBond" type="number" min="0" step="1" value="4"/></div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div style="font-weight:900;margin-bottom:6px;">💱 매도(자산→현금, 1:1)</div>
+          <div class="small muted">매도는 턴 시작에 즉시 반영.</div>
+          <div class="row" style="margin-top:8px;">
+            <div><label>주식</label><br/><input id="sellStock" type="number" min="0" step="1" value="0"/></div>
+            <div><label>금</label><br/><input id="sellGold" type="number" min="0" step="1" value="0"/></div>
+            <div><label>채권</label><br/><input id="sellBond" type="number" min="0" step="1" value="0"/></div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="row" id="actionRowInline" style="justify-content:space-between;">
+            <div class="row">
+              <button class="btn" id="btnRoll">주사위 굴리기</button>
+              <button class="btn" id="btnResolve" disabled>턴 진행(7년)</button>
+            </div>
+            <div class="small muted" id="allocHint"></div>
+          </div>
+
+          <div class="small muted" style="margin-top:8px;">
+            ✅ 질병은 <b>이번 턴(7년)</b>에만 1회 적용
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="grid">
+    <div class="card">
+      <div style="font-weight:900;">🏦 보유 자산(원금)</div>
+      <div class="small muted">수익률은 7년 단위로 크게 움직임 (MDD 기반 변동성)</div>
+      <div class="hr"></div>
+      <table>
+        <thead><tr><th>자산</th><th>원금</th><th>모델 기준(연)</th></tr></thead>
+        <tbody id="holdingTable"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:900;">🌍 경제상황 등장확률</div>
+      <div class="small muted">물가 목표(2~3%)가 대부분, 디플레는 드물고 스태그는 가끔.</div>
+      <div class="hr"></div>
+      <table>
+        <thead><tr><th>상황</th><th>확률</th><th>연 물가 범위</th></tr></thead>
+        <tbody id="regimeProbTable"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:900;">🧾 연대기 로그</div>
+      <div class="small muted">한 턴=7년이므로 “시대 요약”처럼 기록됨.</div>
+      <div class="hr"></div>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const TURN_YEARS = 7;
+
+const CONFIG = {
+  totalTurns: 10,
+  startYear: 1960,
+  startCash: 100,
+
+  regimes: [
+    { key:"target", label:"물가목표(2~3%)", p:0.82, inflationRange:[0.02, 0.03] },
+    { key:"deflation", label:"디플레이션", p:0.06, inflationRange:[-0.02, 0.00] },
+    { key:"stagflation", label:"스태그플레이션", p:0.12, inflationRange:[0.04, 0.08] },
+  ],
+
+  assets: {
+    stock: { name:"주식", mu:0.096, mdd:0.58 },
+    bond:  { name:"채권", mu:0.049, mdd:0.127 },
+    gold:  { name:"금",   mu:0.050, mdd:0.54 },
+  },
+
+  sigmaFromMDD: (mdd)=> Math.max(0.01, mdd/3.0),
+
+  regimeMuAdjust: {
+    target:     { stock: +0.00, bond:+0.00, gold:+0.00 },
+    deflation:  { stock: -0.05, bond:+0.02, gold:+0.01 },
+    stagflation:{ stock: -0.08, bond:-0.04, gold:+0.06 },
+  },
+
+  laborPerTime: 1.0,
+
+  laborSchedule(turnIndex, totalTurns, type){
+    const t = turnIndex, N = totalTurns;
+    if(type==="flat") return 1.00;
+    if(type==="front"){
+      const start=1.35, end=0.75, a=(t-1)/(N-1);
+      return start + (end-start)*a;
+    }
+    if(type==="back"){
+      const start=0.75, end=1.35, a=(t-1)/(N-1);
+      return start + (end-start)*a;
+    }
+    return 1.0;
+  },
+
+  baseConsumption: { target:18, deflation:14, stagflation:26 },
+
+  expBasePosChance: 0.52,
+  expBuffGain: 0.08,
+  expNegLossRate: 0.55,
+
+  diceToLaborEff(d){ return 0.90 + d*0.04; },
+  diceToAssetEff(d){ return 0.75 + d*0.09; },
+
+  // ✅ 여기(콤마 위치) 오류 수정됨
+  disease: {
+    overworkTiers: [
+      { min:0.70, p:0.35, laborMult:0.70, assetMult:0.95 },
+      { min:0.55, p:0.20, laborMult:0.82, assetMult:0.98 },
+      { min:0.35, p:0.10, laborMult:0.92, assetMult:1.00 },
+      { min:0.00, p:0.00, laborMult:1.00, assetMult:1.00 },
+    ],
+    mentalTiers: [
+      { max:0,  p:0.30, allMult:0.78, consAdd:3 },
+      { max:4,  p:0.18, allMult:0.86, consAdd:2 },
+      { max:9,  p:0.08, allMult:0.93, consAdd:1 },
+      { max:999999, p:0.00, allMult:1.00, consAdd:0 },
+    ]
+  },
+
+  historicalEvents: [
+    { name:"에너지 충격", flavor:"공급 충격으로 비용 압박이 커진다.", w:0.18, effects:{ consAdd:+4, laborMult:0.97 } },
+    { name:"기술 도약", flavor:"생산성과 자본 효율이 함께 오른다.", w:0.18, effects:{ laborMult:1.05, assetMuAdd:{stock:+0.02} } },
+    { name:"금융 불안", flavor:"위험자산 변동성이 확대된다.", w:0.16, effects:{ assetSigmaMult:{stock:1.15} } },
+    { name:"제도 안정", flavor:"안전망이 강화돼 필수지출이 일부 완화된다.", w:0.16, effects:{ consAdd:-2 } },
+    { name:"조용한 시대", flavor:"큰 사건 없이 구조가 유지된다.", w:0.32, effects:{ } },
+  ],
+  personalEvents: [
+    { name:"학업/자격", flavor:"역량 강화. 장기 생산성에 도움.", w:0.18, effects:{ expPosChanceAdd:+0.08, laborMult:1.02 } },
+    { name:"실직/공백", flavor:"커리어 단절. 노동 효율이 꺾인다.", w:0.10, effects:{ laborMult:0.72, consAdd:+1 } },
+    { name:"출산/부양", flavor:"기쁨과 부담이 동시에 늘어난다.", w:0.10, effects:{ consAdd:+5, laborMult:0.96 } },
+    { name:"질병(개인)", flavor:"큰 병은 아니지만 컨디션이 떨어진다.", w:0.10, effects:{ laborMult:0.92 } },
+    { name:"창업/도전", flavor:"리스크를 떠안고 판을 키운다.", w:0.12, effects:{ assetMuAdd:{stock:+0.01}, consAdd:+2 } },
+    { name:"무사", flavor:"특별한 개인 사건 없음.", w:0.40, effects:{ } },
+  ]
+};
+
+/** ===== 유틸 ===== */
+const $ = (id)=>document.getElementById(id);
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const fmt=(n)=>Number.isFinite(n)?(Math.abs(n)>=1000?n.toLocaleString("ko-KR"):String(Math.round(n))):"-";
+function pickByProb(list){
+  let r=Math.random();
+  for(const it of list){ r-=it.p; if(r<=0) return it; }
+  return list[list.length-1];
+}
+function pickWeighted(list){
+  const sum=list.reduce((s,x)=>s+x.w,0);
+  let r=Math.random()*sum;
+  for(const it of list){ r-=it.w; if(r<=0) return it; }
+  return list[list.length-1];
+}
+function randN(){
+  let u=0,v=0;
+  while(u===0) u=Math.random();
+  while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function lognormalReturn(muAnnual, sigmaAnnual, years){
+  const sigma = sigmaAnnual;
+  const muLog = Math.log(1+muAnnual) - 0.5*sigma*sigma;
+  const z = randN();
+  const logR = (muLog*years) + (sigma*Math.sqrt(years)*z);
+  const gross = Math.exp(logR);
+  return gross - 1;
+}
+
+/** ===== 상태 ===== */
+const game = {
+  laborLocked:false,
+  laborType:"flat",
+  turn:0,
+  year:CONFIG.startYear,
+  cash:CONFIG.startCash,
+  holdings:{stock:0,gold:0,bond:0},
+  buff:0,
+  regime:null,
+  inflation:null,
+  dice:null,
+  laborEff:null,
+  assetEff:null,
+  events:{hist:null, pers:null},
+  cons:0,
+  diseaseText:"없음",
+  log:[]
+};
+
+const assetKeys=["stock","gold","bond"];
+const totalAsset=()=>assetKeys.reduce((s,k)=>s+game.holdings[k],0);
+const totalValue=()=>game.cash+totalAsset();
+
+/** ===== 턴 준비 ===== */
+function calcConsumption(){
+  const base = CONFIG.baseConsumption[game.regime.key];
+  const he = game.events.hist.effects||{};
+  const pe = game.events.pers.effects||{};
+  return Math.max(0, Math.round(base + (he.consAdd||0) + (pe.consAdd||0)));
+}
+function nextTurn(){
+  game.turn += 1;
+  game.year = CONFIG.startYear + (game.turn-1)*TURN_YEARS;
+
+  game.regime = pickByProb(CONFIG.regimes);
+  const [a,b]=game.regime.inflationRange;
+  game.inflation = a + Math.random()*(b-a);
+
+  game.events.hist = pickWeighted(CONFIG.historicalEvents);
+  game.events.pers = pickWeighted(CONFIG.personalEvents);
+
+  game.dice=null;
+  game.laborEff=null;
+  game.assetEff=null;
+  game.diseaseText="없음";
+
+  game.cons = calcConsumption();
+
+  game.log.push(`\n[${game.year}년대 / ${game.turn}턴(≈${TURN_YEARS}년)] 경제: ${game.regime.label} (연 물가≈${(game.inflation*100).toFixed(1)}%)`);
+  game.log.push(`- 역사: ${game.events.hist.name} / 개인: ${game.events.pers.name}`);
+}
+
+/** ===== 질병(이번 턴만) ===== */
+function rollDisease(laborAlloc, expAlloc, buySum){
+  let laborMult=1.0, assetMult=1.0, allMult=1.0, consAdd=0;
+  const spend = laborAlloc + expAlloc + buySum;
+  let tag=[];
+
+  if(spend>0){
+    const ratio = laborAlloc / spend;
+    for(const t of CONFIG.disease.overworkTiers){
+      if(ratio >= t.min){
+        if(Math.random() < t.p){
+          laborMult *= t.laborMult;
+          assetMult *= t.assetMult;
+          tag.push("신체(과로)");
+        }
+        break;
+      }
+    }
+  }
+
+  for(const t of CONFIG.disease.mentalTiers){
+    if(expAlloc <= t.max){
+      if(Math.random() < t.p){
+        allMult *= t.allMult;
+        consAdd += t.consAdd;
+        tag.push("정신(번아웃)");
+      }
+      break;
+    }
+  }
+
+  return {
+    laborMult: laborMult*allMult,
+    assetMult: assetMult*allMult,
+    consAdd,
+    label: tag.length?tag.join(" + "):"없음"
+  };
+}
+
+/** ===== 주사위 ===== */
+function rollDice(){
+  game.dice = 1 + Math.floor(Math.random()*6);
+  game.log.push(`- 주사위(공개): ${game.dice} (효율은 적용 후 공개)`);
+  $("btnRoll").disabled=true;
+  $("btnResolve").disabled=false;
+  render();
+}
+
+/** ===== 턴 처리 ===== */
+function resolveTurn(){
+  if(game.dice==null) return;
+
+  const laborAlloc = clamp(parseInt($("allocLabor").value||"0",10),0,999999);
+  const expAlloc   = clamp(parseInt($("allocExp").value||"0",10),0,999999);
+
+  const buyStock = clamp(parseInt($("buyStock").value||"0",10),0,999999);
+  const buyGold  = clamp(parseInt($("buyGold").value||"0",10),0,999999);
+  const buyBond  = clamp(parseInt($("buyBond").value||"0",10),0,999999);
+  const buySum = buyStock+buyGold+buyBond;
+
+  const sellStock = clamp(parseInt($("sellStock").value||"0",10),0,999999);
+  const sellGold  = clamp(parseInt($("sellGold").value||"0",10),0,999999);
+  const sellBond  = clamp(parseInt($("sellBond").value||"0",10),0,999999);
+  const sellSum = sellStock+sellGold+sellBond;
+
+  if(sellStock>game.holdings.stock){alert("주식 매도량이 보유를 초과");return;}
+  if(sellGold>game.holdings.gold){alert("금 매도량이 보유를 초과");return;}
+  if(sellBond>game.holdings.bond){alert("채권 매도량이 보유를 초과");return;}
+
+  // 매도
+  if(sellSum>0){
+    game.holdings.stock -= sellStock;
+    game.holdings.gold  -= sellGold;
+    game.holdings.bond  -= sellBond;
+    game.cash += sellSum;
+    game.log.push(`- 매도: 주식${sellStock}, 금${sellGold}, 채권${sellBond} → 현금 +${sellSum}`);
+  }
+
+  const spend = laborAlloc+expAlloc+buySum;
+  if(spend>game.cash){alert(`지출(${spend})이 현금(${game.cash}) 초과`);return;}
+  game.cash -= spend;
+
+  const he = game.events.hist.effects||{};
+  const pe = game.events.pers.effects||{};
+
+  // 질병(이번 턴만)
+  const disease = rollDisease(laborAlloc, expAlloc, buySum);
+  game.diseaseText = disease.label;
+
+  // 주사위 효율
+  let laborEff = CONFIG.diceToLaborEff(game.dice);
+  let assetEff = CONFIG.diceToAssetEff(game.dice);
+
+  // 노동소득
+  const sched = CONFIG.laborSchedule(game.turn, CONFIG.totalTurns, game.laborType);
+  const laborMult = (he.laborMult||1)*(pe.laborMult||1)*sched*(1+game.buff)*disease.laborMult;
+  const laborIncome = Math.round(laborAlloc * CONFIG.laborPerTime * laborMult * laborEff);
+  game.cash += laborIncome;
+
+  // 매수
+  game.holdings.stock += buyStock;
+  game.holdings.gold  += buyGold;
+  game.holdings.bond  += buyBond;
+
+  // 경험
+  const expPosChance = clamp(CONFIG.expBasePosChance + (he.expPosChanceAdd||0) + (pe.expPosChanceAdd||0), 0.05, 0.95);
+  let expText="없음";
+  if(expAlloc>0){
+    if(Math.random()<expPosChance){
+      const gain = CONFIG.expBuffGain * Math.sqrt(expAlloc/10);
+      game.buff = Math.round((game.buff + gain)*100)/100;
+      expText = `플러스(버프 +${gain.toFixed(2)} → ${game.buff.toFixed(2)})`;
+    }else{
+      const loss = Math.round(expAlloc * CONFIG.expNegLossRate * laborEff);
+      game.cash -= loss;
+      expText = `마이너스(추가 소모 ${loss})`;
+    }
+  }
+
+  // 자산(7년) 수익률 적용
+  const adj = CONFIG.regimeMuAdjust[game.regime.key] || {};
+  const before = {...game.holdings};
+  const rLog = {};
+
+  const assetMuAdd = Object.assign({}, (he.assetMuAdd||{}), (pe.assetMuAdd||{}));
+  const assetSigmaMult = Object.assign({}, (he.assetSigmaMult||{}), (pe.assetSigmaMult||{}));
+
+  for(const k of assetKeys){
+    const base = CONFIG.assets[k];
+    const mu = (base.mu + (adj[k]||0) + (assetMuAdd[k]||0));
+    const sigma = CONFIG.sigmaFromMDD(base.mdd) * (assetSigmaMult[k]||1);
+
+    const r7 = lognormalReturn(mu, sigma, TURN_YEARS);
+    const applied = r7 * (1+game.buff) * assetEff * disease.assetMult;
+
+    game.holdings[k] = Math.max(0, Math.round(game.holdings[k] * (1 + applied)));
+    rLog[k] = r7;
+  }
+
+  // 소비(질병 추가 반영)
+  game.cons = calcConsumption() + (disease.consAdd||0);
+  game.cash -= game.cons;
+
+  game.laborEff = Math.round(laborEff*100)/100;
+  game.assetEff = Math.round(assetEff*100)/100;
+
+  game.log.push(`- 효율(공개): 노동 x${game.laborEff} / 자산 x${game.assetEff} / 질병: ${game.diseaseText}`);
+  game.log.push(`- 노동: 투입${laborAlloc} → +${laborIncome}`);
+  game.log.push(`- 경험: 투입${expAlloc} → ${expText}`);
+  game.log.push(`- 시장(7년) 수익률(샘플): 주식 ${(rLog.stock*100).toFixed(1)}% / 금 ${(rLog.gold*100).toFixed(1)}% / 채권 ${(rLog.bond*100).toFixed(1)}%`);
+  game.log.push(`- 자산 변화: 주식 ${before.stock}→${game.holdings.stock}, 금 ${before.gold}→${game.holdings.gold}, 채권 ${before.bond}→${game.holdings.bond}`);
+  game.log.push(`- 필수소비(7년치): -${game.cons}`);
+
+  if(game.cash<=0){
+    endGame(false, "현금(시간자원)이 0 이하가 되어 탈락했습니다.");
+    return;
+  }
+
+  $("btnResolve").disabled=true;
+  $("btnRoll").disabled=false;
+  $("sellStock").value=0; $("sellGold").value=0; $("sellBond").value=0;
+
+  if(game.turn>=CONFIG.totalTurns){
+    endGame(true, "모든 턴(=시대)이 종료되었습니다!");
+    return;
+  }
+
+  nextTurn();
+  render();
+}
+
+function endGame(finished, msg){
+  game.log.push(`\n=== 게임 종료 ===`);
+  game.log.push(msg);
+  game.log.push(`최종 현금: ${game.cash}`);
+  game.log.push(`최종 자산 합: ${totalAsset()}`);
+  game.log.push(`총 가치: ${totalValue()}`);
+  $("btnRoll").disabled=true;
+  $("btnResolve").disabled=true;
+  render();
+  alert(`${msg}\n\n최종 현금: ${game.cash}\n자산 합: ${totalAsset()}\n총 가치: ${totalValue()}`);
+}
+
+/** ===== 렌더 ===== */
+function renderEventRow(type, ev){
+  const eff=ev.effects||{};
+  const parts=[];
+  if(eff.laborMult!=null) parts.push(`노동 x${eff.laborMult}`);
+  if(eff.consAdd!=null) parts.push(`필수소비 ${eff.consAdd>=0?"+":""}${eff.consAdd}`);
+  if(eff.expPosChanceAdd!=null) parts.push(`경험+확률 ${eff.expPosChanceAdd>=0?"+":""}${eff.expPosChanceAdd}`);
+  if(eff.assetMuAdd) parts.push(`자산mu+(${Object.keys(eff.assetMuAdd).join(",")})`);
+  if(eff.assetSigmaMult) parts.push(`변동성x(${Object.keys(eff.assetSigmaMult).join(",")})`);
+  return `<tr>
+    <td>${type}</td>
+    <td><b>${ev.name}</b><div class="small muted">${ev.flavor||""}</div></td>
+    <td class="small">${parts.length?parts.join(", "):"변화 없음"}</td>
+  </tr>`;
+}
+
+function render(){
+  $("turnLabel").textContent = `${game.turn}/${CONFIG.totalTurns}`;
+  $("yearLabel").textContent = `${game.year}년대`;
+  $("regimeLabel").textContent = game.regime?`${game.regime.label}`:"-";
+  $("diceLabel").textContent = game.dice==null?"-":String(game.dice);
+
+  if(game.laborEff!=null){ $("laborEffLabel").textContent=`x${game.laborEff}`; $("laborEffLabel").classList.remove("muted"); }
+  else { $("laborEffLabel").textContent="적용 후 공개"; $("laborEffLabel").classList.add("muted"); }
+
+  if(game.assetEff!=null){ $("assetEffLabel").textContent=`x${game.assetEff}`; $("assetEffLabel").classList.remove("muted"); }
+  else { $("assetEffLabel").textContent="적용 후 공개"; $("assetEffLabel").classList.add("muted"); }
+
+  $("diseaseLabel").textContent = game.diseaseText;
+
+  $("cashLabel").textContent = fmt(game.cash);
+  $("assetTotalLabel").textContent = fmt(totalAsset());
+  $("buffLabel").textContent = `+${game.buff.toFixed(2)}`;
+  $("consLabel").textContent = fmt(game.cons);
+  $("totalValueLabel").textContent = fmt(totalValue());
+
+  $("laborChosenText").textContent = game.laborLocked
+    ? `확정됨: ${$("laborType").selectedOptions[0].textContent}`
+    : "미확정";
+
+  $("eventTable").innerHTML = [
+    renderEventRow("역사", game.events.hist||{name:"-",flavor:"",effects:{}}),
+    renderEventRow("개인", game.events.pers||{name:"-",flavor:"",effects:{}})
+  ].join("");
+
+  const s = CONFIG.sigmaFromMDD(CONFIG.assets.stock.mdd);
+  const b = CONFIG.sigmaFromMDD(CONFIG.assets.bond.mdd);
+  const g = CONFIG.sigmaFromMDD(CONFIG.assets.gold.mdd);
+
+  $("holdingTable").innerHTML = `
+    <tr><td>주식</td><td>${fmt(game.holdings.stock)}</td><td class="muted">mu ${(CONFIG.assets.stock.mu*100).toFixed(1)}% / sigma≈${(s*100).toFixed(1)}%</td></tr>
+    <tr><td>금</td><td>${fmt(game.holdings.gold)}</td><td class="muted">mu ${(CONFIG.assets.gold.mu*100).toFixed(1)}% / sigma≈${(g*100).toFixed(1)}%</td></tr>
+    <tr><td>채권</td><td>${fmt(game.holdings.bond)}</td><td class="muted">mu ${(CONFIG.assets.bond.mu*100).toFixed(1)}% / sigma≈${(b*100).toFixed(1)}%</td></tr>
+  `;
+
+  $("regimeProbTable").innerHTML = CONFIG.regimes.map(r=>{
+    return `<tr>
+      <td><b>${r.label}</b></td>
+      <td>${Math.round(r.p*100)}%</td>
+      <td class="muted">${(r.inflationRange[0]*100).toFixed(1)}% ~ ${(r.inflationRange[1]*100).toFixed(1)}%</td>
+    </tr>`;
+  }).join("");
+
+  const laborAlloc = parseInt($("allocLabor").value||"0",10)||0;
+  const expAlloc   = parseInt($("allocExp").value||"0",10)||0;
+  const buySum =
+    (parseInt($("buyStock").value||"0",10)||0) +
+    (parseInt($("buyGold").value||"0",10)||0) +
+    (parseInt($("buyBond").value||"0",10)||0);
+  const sellSum =
+    (parseInt($("sellStock").value||"0",10)||0) +
+    (parseInt($("sellGold").value||"0",10)||0) +
+    (parseInt($("sellBond").value||"0",10)||0);
+
+  const available = game.cash + sellSum;
+  const spend = laborAlloc + expAlloc + buySum;
+  const after = available - spend;
+  $("allocHint").textContent = after>=0
+    ? `매도 +${sellSum} → 사용가능 ${available} / 지출 ${spend} / 남음 ${after}`
+    : `⚠️ 사용가능 ${available} < 지출 ${spend} (부족 ${-after})`;
+
+  $("log").textContent = game.log.join("\n");
+}
+
+/** ===== 리셋/시작 ===== */
+function resetGame(){
+  game.laborLocked=false;
+  game.laborType="flat";
+  game.turn=0;
+  game.year=CONFIG.startYear;
+  game.cash=CONFIG.startCash;
+  game.holdings={stock:0,gold:0,bond:0};
+  game.buff=0;
+  game.regime=null;
+  game.inflation=null;
+  game.dice=null;
+  game.laborEff=null;
+  game.assetEff=null;
+  game.events={hist:null,pers:null};
+  game.cons=0;
+  game.diseaseText="없음";
+  game.log=[`게임 시작: 현금(시간) ${CONFIG.startCash} / 1턴≈${TURN_YEARS}년`];
+
+  $("laborType").disabled=false;
+  $("btnChooseLabor").disabled=false;
+  $("btnRoll").disabled=false;
+  $("btnResolve").disabled=true;
+
+  nextTurn();
+  render();
+}
+
+/** ===== UI ===== */
+$("btnReset").addEventListener("click", resetGame);
+$("btnChooseLabor").addEventListener("click", ()=>{
+  game.laborType = $("laborType").value;
+  game.laborLocked=true;
+  $("laborType").disabled=true;
+  $("btnChooseLabor").disabled=true;
+  game.log.push(`- 노동 타입 확정: ${$("laborType").selectedOptions[0].textContent}`);
+  render();
+});
+$("btnRoll").addEventListener("click", rollDice);
+$("btnResolve").addEventListener("click", resolveTurn);
+
+["allocLabor","allocExp","buyStock","buyGold","buyBond","sellStock","sellGold","sellBond"].forEach(id=>{
+  $(id).addEventListener("input", render);
+});
+
+
+/** ===== Mobile Dock Hooks (iPhone UX) ===== */
+function syncMobileDock(){
+  const mr = document.getElementById("mResolve");
+  const mroll = document.getElementById("mRoll");
+  const mreset = document.getElementById("mReset");
+  const mhint = document.getElementById("mHint");
+  if(!mr || !mroll || !mreset) return;
+
+  // mirror disabled states
+  mroll.disabled = document.getElementById("btnRoll").disabled;
+  mr.disabled = document.getElementById("btnResolve").disabled;
+
+  // mirror hint
+  const hint = document.getElementById("allocHint").textContent || "";
+  mhint.textContent = hint ? hint : "배분을 입력한 뒤 주사위를 굴리고, 턴 진행을 누르세요.";
+}
+
+document.getElementById("mReset")?.addEventListener("click", ()=>document.getElementById("btnReset").click());
+document.getElementById("mRoll")?.addEventListener("click", ()=>document.getElementById("btnRoll").click());
+document.getElementById("mResolve")?.addEventListener("click", ()=>document.getElementById("btnResolve").click());
+
+// keep dock state synced after any render
+const _render = render;
+render = function(){
+  _render();
+  syncMobileDock();
+};
+
+resetGame();
+</script>
+
+<div class="dock" aria-label="모바일 조작 바">
+  <div class="dockInner">
+    <button class="btn secondary" id="mReset">새 게임</button>
+    <button class="btn" id="mRoll">주사위 굴리기</button>
+    <button class="btn wide" id="mResolve" disabled>턴 진행(7년)</button>
+    <div class="dockHint wide" id="mHint">배분을 입력한 뒤 주사위를 굴리고, 턴 진행을 누르세요.</div>
+  </div>
+</div>
+
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
+
+</body>
+</html>
